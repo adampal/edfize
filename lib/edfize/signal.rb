@@ -81,7 +81,7 @@ module Edfize
     def calculate_physical_values!
       return if @digital_values.empty?
 
-      @physical_values = @digital_values[0..100].collect do |sample|
+      @physical_values = @digital_values.collect do |sample|
         ((sample - @digital_minimum) * (@physical_maximum - @physical_minimum) / 
          (@digital_maximum - @digital_minimum)) + @physical_minimum
       rescue StandardError

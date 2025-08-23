@@ -73,7 +73,8 @@ module Edfize
     end
 
     def load_signals
-      data_records
+      load_digital_signals
+      calculate_physical_values!
     end
 
     # Epoch Number is Zero Indexed, and Epoch Size is in Seconds (Not Data Records)
@@ -186,12 +187,6 @@ module Edfize
       true
     end
 
-    # Load just enough data to preview the signals
-    def load_signal_preview
-      load_digital_signals(preview_mode: true)
-      calculate_physical_values!
-    end
-
     protected
 
     def read_header
@@ -259,8 +254,7 @@ module Edfize
     end
 
     def data_records
-      load_digital_signals
-      calculate_physical_values!
+      load_signals
     end
 
     def load_digital_signals_by_epoch(epoch_number, epoch_size)
@@ -293,7 +287,9 @@ module Edfize
         load_signal_data(all_signal_data, 1)
       else
         # Load all data (original behavior)
-        all_signal_data = File.binread(@filename, nil, size_of_header).unpack("s<*")
+        data_section = File.binread(@filename, nil, size_of_header)
+        all_signal_data = data_section.unpack("s<*")
+        # Use the number_of_data_records from the header
         load_signal_data(all_signal_data, @number_of_data_records)
       end
     end
@@ -393,12 +389,6 @@ module Edfize
     # Writes the EDF file to the specified path
     # @param output_path [String] The path where the EDF file should be written
     # @param is_continuous [Boolean] Whether this is a continuous (EDF+C) or discontinuous (EDF+D) recording
-    # Load just enough data to preview the signals
-    def load_signal_preview
-      load_digital_signals(preview_mode: true)
-      calculate_physical_values!
-    end
-
     def write(output_path = nil, is_continuous: true)
       # Use provided path or stored filename
       target_path = output_path || @filename
