@@ -78,6 +78,27 @@ Edfize.edfs do |edf|
 end
 ```
 
+### Writing EDF Files
+
+The Edfize gem now supports writing EDF+ files. You can create new EDF files or modify existing ones:
+
+```ruby
+# Load an existing EDF file
+edf = Edfize::Edf.new("input.edf")
+
+# Write it to a new file (as continuous EDF+)
+edf.write("output.edf", is_continuous: true)
+
+# Write it as discontinuous EDF+
+edf.write("output.edf", is_continuous: false)
+```
+
+The write functionality automatically:
+- Adds required EDF+ headers
+- Ensures at least one EDF Annotations signal exists (required for EDF+)
+- Properly formats all header fields
+- Writes signal data in the correct binary format
+
 ### Example of how to Load and Analyze EDFs in a Ruby Script
 
 The following Ruby file demonstrates how to make use of the Edfize gem to load

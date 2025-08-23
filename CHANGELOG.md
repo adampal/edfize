@@ -1,3 +1,14 @@
+## 0.7.0 (Unreleased)
+
+### Enhancements
+- **Writing Support**
+  - Added support for writing EDF+ files
+  - New files can be written as continuous (EDF+C) or discontinuous (EDF+D)
+  - Automatically adds required EDF+ headers and annotations signal
+  - Full support for writing all signal types and data records
+- **Gem Changes**
+  - Update to Ruby 3.3.6
+
 ## 0.6.0 (March 1, 2019)
 
 ### Enhancements

@@ -286,5 +286,141 @@ module Edfize
     def data_size
       IO.binread(@filename, nil, size_of_header).size
     end
+
+    private
+
+    def write_main_header(file)
+      HEADER_CONFIG.each do |section, config|
+        value = format_header_value(section)
+        file.write(value.ljust(config[:size])[0, config[:size]])
+      end
+    end
+
+    def format_header_value(section)
+      value = instance_variable_get("@#{section}")
+      value.to_s
+    end
+
+    def write_signal_headers(file)
+      Signal::SIGNAL_CONFIG.each do |section, config|
+        @signals.each do |signal|
+          value = signal.send(section).to_s
+          file.write(value.ljust(config[:size])[0, config[:size]])
+        end
+      end
+    end
+
+    def write_data_records(file)
+      @signals.each do |signal|
+        # Pack digital values as 16-bit signed integers in little-endian format
+        packed_data = signal.digital_values.pack('s<*')
+        file.write(packed_data)
+      end
+    end
+
+    def calculate_header_size
+      main_header_size = HEADER_CONFIG.values.sum { |config| config[:size] }
+      signal_header_size = @signals.size * Signal::SIGNAL_CONFIG.values.sum { |config| config[:size] }
+      main_header_size + signal_header_size
+    end
+
+    def ensure_annotations_signal
+      return if @signals.any? { |s| s.label == 'EDF Annotations' }
+
+      annotation_signal = Signal.new
+      annotation_signal.label = 'EDF Annotations'
+      annotation_signal.transducer_type = ' ' * 80
+      annotation_signal.physical_dimension = ' ' * 8
+      annotation_signal.physical_minimum = -1
+      annotation_signal.physical_maximum = 1
+      annotation_signal.digital_minimum = -32768
+      annotation_signal.digital_maximum = 32767
+      annotation_signal.prefiltering = ' ' * 80
+      annotation_signal.samples_per_data_record = 60  # Standard size for annotations
+      annotation_signal.reserved_area = ' ' * 32
+      
+      @signals << annotation_signal
+      @number_of_signals = @signals.size
+    end
+
+    public
+
+    # Writes the EDF file to the specified path
+    # @param output_path [String] The path where the EDF file should be written
+    # @param is_continuous [Boolean] Whether this is a continuous (EDF+C) or discontinuous (EDF+D) recording
+    def write(output_path, is_continuous: true)
+      @filename = output_path
+      
+      # Ensure we have at least one EDF Annotations signal for time-keeping
+      ensure_annotations_signal
+      
+      # Calculate and update header size
+      @number_of_bytes_in_header = calculate_header_size
+      
+      # Set EDF+ format in reserved area
+      @reserved = "EDF+#{is_continuous ? 'C' : 'D'}".ljust(RESERVED_SIZE)
+      
+      File.open(output_path, 'wb') do |file|
+        write_main_header(file)
+        write_signal_headers(file)
+        write_data_records(file)
+      end
+    end
+
+    private
+
+    def write_main_header(file)
+      HEADER_CONFIG.each do |section, config|
+        value = format_header_value(section)
+        file.write(value.ljust(config[:size])[0, config[:size]])
+      end
+    end
+
+    def format_header_value(section)
+      value = instance_variable_get("@#{section}")
+      value.to_s
+    end
+
+    def write_signal_headers(file)
+      Signal::SIGNAL_CONFIG.each do |section, config|
+        @signals.each do |signal|
+          value = signal.send(section).to_s
+          file.write(value.ljust(config[:size])[0, config[:size]])
+        end
+      end
+    end
+
+    def write_data_records(file)
+      @signals.each do |signal|
+        # Pack digital values as 16-bit signed integers in little-endian format
+        packed_data = signal.digital_values.pack('s<*')
+        file.write(packed_data)
+      end
+    end
+
+    def calculate_header_size
+      main_header_size = HEADER_CONFIG.values.sum { |config| config[:size] }
+      signal_header_size = @signals.size * Signal::SIGNAL_CONFIG.values.sum { |config| config[:size] }
+      main_header_size + signal_header_size
+    end
+
+    def ensure_annotations_signal
+      return if @signals.any? { |s| s.label == 'EDF Annotations' }
+
+      annotation_signal = Signal.new
+      annotation_signal.label = 'EDF Annotations'
+      annotation_signal.transducer_type = ' ' * 80
+      annotation_signal.physical_dimension = ' ' * 8
+      annotation_signal.physical_minimum = -1
+      annotation_signal.physical_maximum = 1
+      annotation_signal.digital_minimum = -32768
+      annotation_signal.digital_maximum = 32767
+      annotation_signal.prefiltering = ' ' * 80
+      annotation_signal.samples_per_data_record = 60  # Standard size for annotations
+      annotation_signal.reserved_area = ' ' * 32
+      
+      @signals << annotation_signal
+      @number_of_signals = @signals.size
+    end
   end
 end
