@@ -23,3 +23,8 @@ mkmf.log
 
 # OS generated files #
 .DS_Store
+
+# Example output and data files
+example/*.edf
+example/*.zip
+example/*.json.gz
