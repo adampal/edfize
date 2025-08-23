@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 module Edfize
+  # Represents a signal in an EDF file, containing both header information and data values
   class Signal
     attr_accessor :label, :transducer_type, :physical_dimension,
                   :physical_minimum, :physical_maximum,
@@ -9,25 +10,24 @@ module Edfize
                   :reserved_area, :digital_values, :physical_values
 
     SIGNAL_CONFIG = {
-      label:                   { size: 16, after_read: :strip, name: "Label" },
-      transducer_type:         { size: 80, after_read: :strip, name: "Transducer Type" },
-      physical_dimension:      { size:  8, after_read: :strip, name: "Physical Dimension" },
-      physical_minimum:        { size:  8, after_read: :to_f,  name: "Physical Minimum" },
-      physical_maximum:        { size:  8, after_read: :to_f,  name: "Physical Maximum" },
-      digital_minimum:         { size:  8, after_read: :to_i,  name: "Digital Minimum" },
-      digital_maximum:         { size:  8, after_read: :to_i,  name: "Digital Maximum" },
-      prefiltering:            { size: 80, after_read: :strip, name: "Prefiltering" },
-      samples_per_data_record: { size:  8, after_read: :to_i,  name: "Samples Per Data Record" },
-      reserved_area:           { size: 32,                     name: "Reserved Area" }
-    }
+      label: { size: 16, after_read: :strip, name: "Label" },
+      transducer_type: { size: 80, after_read: :strip, name: "Transducer Type" },
+      physical_dimension: { size:  8, after_read: :strip, name: "Physical Dimension" },
+      physical_minimum: { size:  8, after_read: :to_f,  name: "Physical Minimum" },
+      physical_maximum: { size:  8, after_read: :to_f,  name: "Physical Maximum" },
+      digital_minimum: { size:  8, after_read: :to_i,  name: "Digital Minimum" },
+      digital_maximum: { size:  8, after_read: :to_i,  name: "Digital Maximum" },
+      prefiltering: { size: 80, after_read: :strip, name: "Prefiltering" },
+      samples_per_data_record: { size: 8, after_read: :to_i, name: "Samples Per Data Record" },
+      reserved_area: { size: 32, name: "Reserved Area" }
+    }.freeze
 
     def initialize
       @digital_values = []
       @physical_values = []
-      self
     end
 
-    def self.create(&block)
+    def self.create
       signal = new
       yield signal if block_given?
       signal
@@ -35,13 +35,17 @@ module Edfize
 
     def print_header
       SIGNAL_CONFIG.each do |section, hash|
-        puts "  #{hash[:name]}#{" " * (29 - hash[:name].size)}: " + self.send(section).to_s
+        puts "  #{hash[:name]}#{" " * (29 - hash[:name].size)}: " + send(section).to_s
       end
     end
 
     # Physical value (dimension PhysiDim) = (ASCIIvalue-DigiMin)*(PhysiMax-PhysiMin)/(DigiMax-DigiMin) + PhysiMin.
     def calculate_physical_values!
-      @physical_values = @digital_values.collect{|sample| ((sample - @digital_minimum) * (@physical_maximum - @physical_minimum) / (@digital_maximum - @digital_minimum) + @physical_minimum rescue nil) }
+      @physical_values = @digital_values.collect do |sample|
+        ((sample - @digital_minimum) * (@physical_maximum - @physical_minimum) / (@digital_maximum - @digital_minimum)) + @physical_minimum
+      rescue StandardError
+        nil
+      end
     end
 
     def samples

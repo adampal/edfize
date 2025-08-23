@@ -25,9 +25,9 @@ Run `edfize` on command line to view full list of options."
 
   spec.files         = Dir["{bin,lib}/**/*"] + %w(CHANGELOG.md LICENSE Rakefile README.md edfize.gemspec)
   spec.executables   = spec.files.grep(%r{^bin/}) { |f| File.basename(f) }
-  spec.test_files    = spec.files.grep(%r{^(test)/})
   spec.require_paths = ["lib"]
 
   spec.add_dependency "bundler", ">= 1.3.0"
   spec.add_dependency "rake"
+  spec.metadata["rubygems_mfa_required"] = "true"
 end

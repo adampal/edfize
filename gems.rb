@@ -6,8 +6,9 @@ source "https://rubygems.org"
 gemspec
 
 # Testing
-group :test do
+group :test, :development do
   # Pretty printed test output
   gem "minitest"
+  gem "rubocop", require: false
   gem "simplecov", "~> 0.16.1", require: false
 end

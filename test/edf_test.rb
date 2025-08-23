@@ -209,46 +209,44 @@ class EdfTest < Minitest::Test
   def test_write_edf_file
     # Load an existing EDF file
     original_edf = Edfize::Edf.new("test/support/simulated-01.edf")
-    
+
     # Create a temporary file for writing
     output_file = Tempfile.new(["test-write", ".edf"])
     begin
       # Write the EDF file
       original_edf.write(output_file.path)
-      
+
       # Read back the written file
       written_edf = Edfize::Edf.new(output_file.path)
-      
+
       # Compare header fields
-      Edfize::Edf::HEADER_CONFIG.keys.each do |field|
-        next if field == :reserved  # Skip reserved as it will be different (EDF+C/D)
+      Edfize::Edf::HEADER_CONFIG.each_key do |field|
+        next if field == :reserved # Skip reserved as it will be different (EDF+C/D)
+
         assert_equal original_edf.send(field), written_edf.send(field),
                      "Header field #{field} does not match"
       end
-      
+
       # Verify EDF+ format in reserved area
-      assert_match /^EDF\+[CD]/, written_edf.reserved.strip
-      
+      assert_match(/^EDF\+[CD]/, written_edf.reserved.strip)
+
       # Compare signal headers
       original_edf.signals.each_with_index do |orig_signal, i|
         written_signal = written_edf.signals[i]
         next if orig_signal.label == "EDF Annotations" # Skip annotations signal
-        
-        Edfize::Signal::SIGNAL_CONFIG.keys.each do |field|
+
+        Edfize::Signal::SIGNAL_CONFIG.each_key do |field|
           assert_equal orig_signal.send(field), written_signal.send(field),
                        "Signal #{i} field #{field} does not match"
         end
-      end
-      
-      # Compare digital values
-      original_edf.signals.each_with_index do |orig_signal, i|
+
+        # Compare digital values
         written_signal = written_edf.signals[i]
         next if orig_signal.label == "EDF Annotations" # Skip annotations signal
-        
+
         assert_equal orig_signal.digital_values, written_signal.digital_values,
                      "Digital values for signal #{i} do not match"
       end
-      
     ensure
       output_file.close
       output_file.unlink

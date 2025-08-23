@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module Edfize
-  module VERSION #:nodoc:
+  module VERSION # :nodoc:
     MAJOR = 0
     MINOR = 6
     TINY = 0

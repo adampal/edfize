@@ -12,7 +12,7 @@ module Edfize
     when "v"
       version
     when "c", "t"
-      check(argv[1..-1])
+      check(argv[1..])
     when "r"
       print_headers
     else
@@ -38,7 +38,7 @@ module Edfize
     test_count = 0
     failure_count = 0
     total_edfs = edf_paths.count
-    show_passing = argv.include?("--failing") ? false : true
+    show_passing = !argv.include?("--failing")
     puts "Started\n"
     edfs.each do |edf|
       runner = Edfize::Tests::Runner.new(edf, argv)
@@ -49,31 +49,36 @@ module Edfize
       print "\rChecked EDF #{edf_count} of #{total_edfs}" unless show_passing || !runner.tests_failed.zero?
     end
     puts "\nFinished in #{Time.now - test_start_time}s"
-    puts "#{edf_count} EDF#{"s" unless edf_count == 1}, #{test_count} test#{"s" unless test_count == 1}, " + "#{failure_count} failure#{"s" unless failure_count == 1}".send(failure_count == 0 ? :green : :red)
+    puts "#{edf_count} EDF#{"s" unless edf_count == 1}, #{test_count} test#{unless test_count == 1
+                                                                              "s"
+                                                                            end}, " + "#{failure_count} failure#{unless failure_count == 1
+                                                                                                                   "s"
+                                                                                                                 end}".send(failure_count.zero? ? :green : :red)
   end
 
   def self.help
-    help_message = <<-EOT
-Usage: edfize COMMAND [ARGS]
+    help_message = <<~EOT
+      Usage: edfize COMMAND [ARGS]
 
-The most common edfize commands are:
-  [t]est            Check EDFs in directory and subdirectories
-    --failing       Only display failing tests
-    --quiet         Suppress failing test descriptions
-  [r]un             Print EDF header information
-  [h]elp            Show edfize command documentation
-  [v]ersion         Returns the version of Edfize
+      The most common edfize commands are:
+        [t]est            Check EDFs in directory and subdirectories
+          --failing       Only display failing tests
+          --quiet         Suppress failing test descriptions
+        [r]un             Print EDF header information
+        [h]elp            Show edfize command documentation
+        [v]ersion         Returns the version of Edfize
 
-Commands can be referenced by the first letter:
-  Ex: `edfize t`, for test
+      Commands can be referenced by the first letter:
+        Ex: `edfize t`, for test
 
-EOT
+    EOT
     puts help_message
   end
 
   # Returns an enumerator of EDFs.
   def self.edfs(recursive: true)
     return enum_for(:edfs, recursive: recursive) unless block_given?
+
     edf_paths(recursive: recursive).each do |file_path|
       yield Edf.new(file_path)
     end
