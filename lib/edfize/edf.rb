@@ -186,6 +186,12 @@ module Edfize
       true
     end
 
+    # Load just enough data to preview the signals
+    def load_signal_preview
+      load_digital_signals(preview_mode: true)
+      calculate_physical_values!
+    end
+
     protected
 
     def read_header
@@ -279,9 +285,23 @@ module Edfize
     # 16-bit signed integer size = 2 Bytes = 2 ASCII characters
     # 16-bit signed integer in "Little Endian" format (least significant byte first)
     # unpack:  s<         16-bit signed, (little-endian) byte order
-    def load_digital_signals
-      all_signal_data = File.binread(@filename, nil, size_of_header).unpack("s<*")
-      load_signal_data(all_signal_data, @number_of_data_records)
+    def load_digital_signals(preview_mode: false)
+      if preview_mode
+        # Load just enough data for a preview (first data record)
+        size_of_data_record = @signals.collect(&:samples_per_data_record).inject(:+).to_i * SIZE_OF_SAMPLE_IN_BYTES
+        all_signal_data = File.binread(@filename, size_of_data_record, size_of_header).unpack("s<*")
+        load_signal_data(all_signal_data, 1)
+      else
+        # Load all data (original behavior)
+        all_signal_data = File.binread(@filename, nil, size_of_header).unpack("s<*")
+        load_signal_data(all_signal_data, @number_of_data_records)
+      end
+    end
+
+    # Load just enough data to preview the signals
+    def load_signal_preview
+      load_digital_signals(preview_mode: true)
+      calculate_physical_values!
     end
 
     def load_signal_data(all_signal_data, data_records_retrieved)
@@ -338,9 +358,8 @@ module Edfize
 
     def write_data_records(file)
       @signals.each do |signal|
-        # Pack digital values as 16-bit signed integers in little-endian format
-        packed_data = signal.digital_values.pack("s<*")
-        file.write(packed_data)
+        # Use the signal's write method which handles both streaming and regular modes
+        signal.write_values_to(file)
       end
     end
 
@@ -374,6 +393,12 @@ module Edfize
     # Writes the EDF file to the specified path
     # @param output_path [String] The path where the EDF file should be written
     # @param is_continuous [Boolean] Whether this is a continuous (EDF+C) or discontinuous (EDF+D) recording
+    # Load just enough data to preview the signals
+    def load_signal_preview
+      load_digital_signals(preview_mode: true)
+      calculate_physical_values!
+    end
+
     def write(output_path = nil, is_continuous: true)
       # Use provided path or stored filename
       target_path = output_path || @filename
