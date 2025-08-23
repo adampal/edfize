@@ -11,6 +11,102 @@ class EdfTest < Minitest::Test
     @edf_invalid_date = Edfize::Edf.new("test/support/invalid-date.edf")
   end
 
+  def test_create_edf_from_values
+    # Create a temporary file for our test
+    output_file = Tempfile.new(["test-values", ".edf"])
+    begin
+      # Sample values representing a sine wave
+      sample_rate = 256  # 256 Hz
+      duration = 1.0     # 1 second
+      frequency = 10.0   # 10 Hz sine wave
+      physical_values = []
+      
+      # Generate one second of a 10 Hz sine wave
+      (0...sample_rate).each do |i|
+        t = i.to_f / sample_rate
+        physical_values << 100.0 * Math.sin(2 * Math::PI * frequency * t)
+      end
+
+      # Create a new EDF file
+      edf = Edfize::Edf.create do |e|
+        e.local_patient_identification = "Test Patient"
+        e.local_recording_identification = "Sine Wave Test"
+        e.start_date_of_recording = Time.now.strftime("%d.%m.%y")
+        e.start_time_of_recording = Time.now.strftime("%H.%M.%S")
+        e.duration_of_a_data_record = duration
+      end
+
+      # Create a signal for our sine wave
+      signal = Edfize::Signal.new
+      signal.label = "Sine Wave"
+      signal.transducer_type = "Test Signal"
+      signal.physical_dimension = "mV"
+      signal.physical_minimum = -100.0
+      signal.physical_maximum = 100.0
+      signal.digital_minimum = -32768
+      signal.digital_maximum = 32767
+      signal.prefiltering = "None"
+      signal.samples_per_data_record = sample_rate
+      signal.reserved_area = " " * 32
+
+      # Convert physical values to digital values
+      digital_values = physical_values.map do |physical|
+        ((physical - signal.physical_minimum) * 
+         (signal.digital_maximum - signal.digital_minimum) / 
+         (signal.physical_maximum - signal.physical_minimum) + 
+         signal.digital_minimum).round
+      end
+
+      # Set the digital values
+      signal.digital_values = digital_values
+
+      # Add the signal to the EDF
+      edf.signals << signal
+
+      # Write the EDF file
+      edf.write(output_file.path, is_continuous: true)
+
+      # Read back and verify
+      verification_edf = Edfize::Edf.new(output_file.path)
+      verification_edf.load_signals
+
+      # Verify header information
+      assert_equal "Test Patient", verification_edf.local_patient_identification
+      assert_equal "Sine Wave Test", verification_edf.local_recording_identification
+      assert_equal duration, verification_edf.duration_of_a_data_record
+      # number_of_data_records will be 1 since we're writing one second of data
+      assert_equal 1, verification_edf.number_of_data_records
+
+      # Verify signal information (2 signals: our sine wave and the EDF Annotations signal)
+      assert_equal 2, verification_edf.signals.size
+      assert verification_edf.signals.any? { |s| s.label == "EDF Annotations" }, "EDF Annotations signal not found"
+      # Find our sine wave signal (not the annotations signal)
+      test_signal = verification_edf.signals.find { |s| s.label == "Sine Wave" }
+      assert_equal "Sine Wave", test_signal.label
+      assert_equal "mV", test_signal.physical_dimension
+      assert_equal sample_rate, test_signal.samples_per_data_record
+
+      # Verify signal values (allowing for small conversion differences)
+      test_signal.physical_values.each_with_index do |value, index|
+        assert_in_delta physical_values[index], value, 0.1, 
+                       "Value mismatch at index #{index}"
+      end
+
+      # Verify we can read all the data
+      assert_equal sample_rate, test_signal.physical_values.size
+      assert_equal sample_rate, test_signal.digital_values.size
+
+      # Verify signal properties were preserved
+      assert_equal -100.0, test_signal.physical_minimum
+      assert_equal 100.0, test_signal.physical_maximum
+      assert_equal -32768, test_signal.digital_minimum
+      assert_equal 32767, test_signal.digital_maximum
+    ensure
+      output_file.close
+      output_file.unlink
+    end
+  end
+
   def test_edf_version
     assert_equal 0, @valid_edf_no_data_records.send("compute_offset", :version)
     assert_equal 0, @valid_edf_no_data_records.version

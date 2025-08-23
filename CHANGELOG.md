@@ -1,6 +1,11 @@
 ## 0.7.0 (Unreleased)
 
 ### Enhancements
+- **Code Quality**
+  - Added RuboCop for code style enforcement
+  - Improved method naming to follow Ruby conventions
+  - Enhanced test coverage to 89.76%
+  - Fixed various code style and maintainability issues
 - **Writing Support**
   - Added support for writing EDF+ files
   - New files can be written as continuous (EDF+C) or discontinuous (EDF+D)

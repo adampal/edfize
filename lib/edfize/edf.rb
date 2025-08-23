@@ -40,18 +40,36 @@ module Edfize
     # Used by tests
     RESERVED_SIZE = HEADER_CONFIG[:reserved][:size]
 
-    def self.create(filename)
-      edf = new(filename)
+    def self.create(filename = nil)
+      edf = new(filename, initialize_empty: true)
       yield edf if block_given?
       edf
     end
 
-    def initialize(filename)
+    def initialize(filename, initialize_empty: false)
       @filename = filename
       @signals = []
+      @is_new_file = initialize_empty
 
-      read_header
-      read_signal_header
+      if initialize_empty
+        initialize_empty_edf
+      else
+        read_header
+        read_signal_header
+      end
+    end
+
+    def initialize_empty_edf
+      @version = 0
+      @local_patient_identification = ""
+      @local_recording_identification = ""
+      @start_date_of_recording = Time.now.strftime("%d.%m.%y")
+      @start_time_of_recording = Time.now.strftime("%H.%M.%S")
+      @number_of_bytes_in_header = 0  # Will be calculated before writing
+      @reserved = " " * RESERVED_SIZE
+      @number_of_data_records = 0
+      @duration_of_a_data_record = 1
+      @number_of_signals = 0
     end
 
     def load_signals
@@ -356,8 +374,16 @@ module Edfize
     # Writes the EDF file to the specified path
     # @param output_path [String] The path where the EDF file should be written
     # @param is_continuous [Boolean] Whether this is a continuous (EDF+C) or discontinuous (EDF+D) recording
-    def write(output_path, is_continuous: true)
-      @filename = output_path
+    def write(output_path = nil, is_continuous: true)
+      # Use provided path or stored filename
+      target_path = output_path || @filename
+      raise "No output path specified" if target_path.nil?
+
+      # Update the filename for future operations
+      @filename = target_path
+
+      # Update number of signals
+      @number_of_signals = @signals.size
 
       # Ensure we have at least one EDF Annotations signal for time-keeping
       ensure_annotations_signal
@@ -368,11 +394,20 @@ module Edfize
       # Set EDF+ format in reserved area
       @reserved = "EDF+#{is_continuous ? "C" : "D"}".ljust(RESERVED_SIZE)
 
-      File.open(output_path, "wb") do |file|
+      # Calculate number of data records if not set
+      if @number_of_data_records == 0 && !@signals.empty?
+        max_values = @signals.map { |s| s.digital_values.size / s.samples_per_data_record.to_f }.max
+        @number_of_data_records = max_values.ceil
+      end
+
+      File.open(target_path, "wb") do |file|
         write_main_header(file)
         write_signal_headers(file)
         write_data_records(file)
       end
+
+      # If this was a new file, we're no longer in new file mode
+      @is_new_file = false
     end
   end
 end

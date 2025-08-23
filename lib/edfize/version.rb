@@ -3,7 +3,7 @@
 module Edfize
   module VERSION # :nodoc:
     MAJOR = 0
-    MINOR = 6
+    MINOR = 7
     TINY = 0
     BUILD = nil
 
