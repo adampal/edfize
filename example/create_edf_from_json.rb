@@ -80,17 +80,19 @@ edf = Edfize::Edf.create(OUTPUT_EDF_FILE) do |e|
   e.duration_of_a_data_record = 1 # 1 second data records
 end
 
+sampling_rate = 1
+
 # Add a signal
 signal = Edfize::Signal.new
-signal.label = SIGNAL_LABEL
+signal.label = "spo2"
 signal.transducer_type = "JSON Import"
-signal.physical_dimension = PHYSICAL_DIMENSION
-signal.physical_minimum = PHYSICAL_MIN
-signal.physical_maximum = PHYSICAL_MAX
-signal.digital_minimum = DIGITAL_MIN
-signal.digital_maximum = DIGITAL_MAX
-signal.prefiltering = "None"
-signal.samples_per_data_record = SAMPLING_RATE
+signal.physical_dimension = ""
+signal.physical_minimum = 0
+signal.physical_maximum = 100
+signal.digital_minimum = 0
+signal.digital_maximum = 100
+signal.prefiltering = ""
+signal.samples_per_data_record = sampling_rate
 edf.signals << signal
 
 puts "Writing EDF file to: #{OUTPUT_EDF_FILE}"
@@ -99,7 +101,7 @@ puts "Expected file size: ~#{(total_values * Edfize::Edf::SIZE_OF_SAMPLE_IN_BYTE
 
 time_taken = Benchmark.realtime do
   # Calculate number of data records needed
-  data_records = (total_values.to_f / SAMPLING_RATE).ceil
+  data_records = (total_values.to_f / sampling_rate).ceil
   edf.number_of_data_records = data_records
   puts "Data records needed: #{data_records}"
 
@@ -111,6 +113,54 @@ time_taken = Benchmark.realtime do
   edf.write
 end
 
+
+# HR
+# Create enumerator for counting
+puts "Counting total values..."
+value_stream_enumerator = create_value_enumerator("./tmp/hr.json")
+total_values = 0
+begin
+  while value_stream_enumerator.next
+    total_values += 1
+    print "\rProcessed #{total_values} values..." if total_values % 100_000 == 0
+  end
+rescue StopIteration
+end
+puts "\nFound #{total_values} values in file"
+
+# Create new enumerator for processing
+value_stream_enumerator = create_value_enumerator("./tmp/hr.json")
+
+sampling_rate = 1
+
+# Add a signal
+signal = Edfize::Signal.new
+signal.label = "pulse"
+signal.transducer_type = "JSON Import"
+signal.physical_dimension = ""
+signal.physical_minimum = 0
+signal.physical_maximum = 100
+signal.digital_minimum = 0
+signal.digital_maximum = 100
+signal.prefiltering = ""
+signal.samples_per_data_record = sampling_rate
+edf.signals << signal
+
+time_taken = Benchmark.realtime do
+  # Calculate number of data records needed
+  data_records = (total_values.to_f / sampling_rate).ceil
+  edf.number_of_data_records = data_records
+  puts "Data records needed: #{data_records}"
+
+  # The signal.stream_values block will be called repeatedly to get batches of values
+  signal.stream_values(total_values, BATCH_SIZE) do |batch_size_requested|
+    # Use the enumerator to take the next batch of values
+    value_stream_enumerator.take(batch_size_requested)
+  end
+  edf.write
+end
+
+
 puts "\nFile written successfully!"
 puts "Time taken: #{time_taken.round(1)} seconds"
 puts "Actual file size: #{(File.size(OUTPUT_EDF_FILE) / (1024.0 * 1024.0)).round(0)}MB"
@@ -121,13 +171,14 @@ verification_edf = Edfize::Edf.new(OUTPUT_EDF_FILE)
 verification_edf.load_signals
 
 puts "\nSignal Information:"
-test_signal = verification_edf.signals.find { |s| s.label == SIGNAL_LABEL }
-puts "Label: #{test_signal.label}"
-puts "Physical Dimension: #{test_signal.physical_dimension}"
-puts "Sampling Rate: #{test_signal.samples_per_data_record} Hz"
-puts "Total Values: #{test_signal.digital_values.size}"
-puts "Physical Range: #{test_signal.physical_minimum} to #{test_signal.physical_maximum} #{test_signal.physical_dimension}"
+verification_edf.signals.each do |signal|
+  puts "Label: #{signal.label}"
+  puts "Physical Dimension: #{signal.physical_dimension}"
+  puts "Sampling Rate: #{signal.samples_per_data_record} Hz"
+  puts "Total Values: #{signal.digital_values.size}"
+  puts "Physical Range: #{signal.physical_minimum} to #{signal.physical_maximum} #{signal.physical_dimension}"
 
-puts "\nFirst few values:"
-puts "Digital values: #{test_signal.digital_values[0..4]}"
-puts "Physical values: #{test_signal.physical_values[0..4]}"
+  puts "\nFirst few values:"
+  puts "Digital values: #{signal.digital_values[0..4]}"
+  puts "Physical values: #{signal.physical_values[0..4]}"
+end
