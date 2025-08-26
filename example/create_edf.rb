@@ -21,17 +21,17 @@ begin
   signal = Edfize::Signal.new
   signal.label = "Example Signal"
   signal.transducer_type = "Custom Sensor"
-  signal.physical_dimension = "mV"
-  signal.physical_minimum = -500.0
-  signal.physical_maximum = 500.0
-  signal.digital_minimum = -32768  # Standard 16-bit range
-  signal.digital_maximum = 32767
-  signal.prefiltering = "None"
-  signal.samples_per_data_record = 256  # 256 Hz sampling rate
+  signal.physical_dimension = ""
+  signal.physical_minimum = 0
+  signal.physical_maximum = 255
+  signal.digital_minimum = 0
+  signal.digital_maximum = 255
+  signal.prefiltering = ""
+  signal.samples_per_data_record = 125  # 256 Hz sampling rate
   signal.reserved_area = " " * 32  # Required blank space
 
   # Your array of values (example values here)
-  physical_values = [-100.0, 0.0, 100.0, 200.0, 300.0, 250.0, 150.0, 50.0]
+  physical_values = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
   # Pad with zeros to match samples_per_data_record
   physical_values += [0.0] * (signal.samples_per_data_record - physical_values.length)
 
