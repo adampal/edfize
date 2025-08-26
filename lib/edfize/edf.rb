@@ -390,7 +390,8 @@ module Edfize
     # Writes the EDF file to the specified path
     # @param output_path [String] The path where the EDF file should be written
     # @param is_continuous [Boolean] Whether this is a continuous (EDF+C) or discontinuous (EDF+D) recording
-    def write(output_path = nil, is_continuous: true)
+    # @param add_edf_annotations [Boolean] Whether to add an EDF Annotations signal if none exists
+    def write(output_path = nil, is_continuous: true, add_edf_annotations: false)
       # Use provided path or stored filename
       target_path = output_path || @filename
       raise "No output path specified" if target_path.nil?
@@ -401,14 +402,18 @@ module Edfize
       # Update number of signals
       @number_of_signals = @signals.size
 
-      # Ensure we have at least one EDF Annotations signal for time-keeping
-      ensure_annotations_signal
+      # Ensure we have at least one EDF Annotations signal for time-keeping if requested
+      ensure_annotations_signal if add_edf_annotations
 
       # Calculate and update header size
       @number_of_bytes_in_header = calculate_header_size
 
-      # Set EDF+ format in reserved area
-      @reserved = "EDF+#{is_continuous ? "C" : "D"}".ljust(RESERVED_SIZE)
+      # Set EDF+ format in reserved area if we have annotations
+      @reserved = if @signals.any? { |s| s.label == "EDF Annotations" }
+                   "EDF+#{is_continuous ? "C" : "D"}".ljust(RESERVED_SIZE)
+                 else
+                   " " * RESERVED_SIZE
+                 end
 
       # Calculate number of data records if not set
       if @number_of_data_records == 0 && !@signals.empty?

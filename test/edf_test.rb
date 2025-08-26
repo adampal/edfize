@@ -63,8 +63,8 @@ class EdfTest < Minitest::Test
       # Add the signal to the EDF
       edf.signals << signal
 
-      # Write the EDF file
-      edf.write(output_file.path, is_continuous: true)
+      # Write the EDF file with annotations
+      edf.write(output_file.path, is_continuous: true, add_edf_annotations: true)
 
       # Read back and verify
       verification_edf = Edfize::Edf.new(output_file.path)
@@ -460,13 +460,84 @@ class EdfTest < Minitest::Test
       written_edf.load_signals
 
       # Verify the signals
-      assert_equal 2, written_edf.signals.size # 1 signal + 1 EDF Annotations signal
+      assert_equal 1, written_edf.signals.size # Just the ECG signal
       assert_nil written_edf.signals.find_by_label(:ppg)
       written_ecg = written_edf.signals.find_by_label(:ecg)
       assert_equal [8, 9, 10, 11], written_ecg.digital_values
     ensure
       output_file.close
       output_file.unlink
+    end
+  end
+
+  def test_write_edf_with_optional_annotations
+    # Create a new EDF file with test signals
+    edf = Edfize::Edf.create do |e|
+      e.local_patient_identification = "Test Patient"
+      e.local_recording_identification = "Test Recording"
+      e.start_date_of_recording = Time.now.strftime("%d.%m.%y")
+      e.start_time_of_recording = Time.now.strftime("%H.%M.%S")
+      e.duration_of_a_data_record = 1
+    end
+
+    # Create a test signal
+    signal = Edfize::Signal.new
+    signal.label = "test"
+    signal.transducer_type = "Test Signal"
+    signal.physical_dimension = "mV"
+    signal.physical_minimum = -100.0
+    signal.physical_maximum = 100.0
+    signal.digital_minimum = -32768
+    signal.digital_maximum = 32767
+    signal.prefiltering = "None"
+    signal.samples_per_data_record = 4
+    signal.reserved_area = " " * 32
+    signal.digital_values = [0, 1, 2, 3]
+    edf.signals << signal
+
+    # Test writing without annotations
+    output_file_no_annotations = Tempfile.new(["test-no-annotations", ".edf"])
+    begin
+      edf.write(output_file_no_annotations.path, add_edf_annotations: false)
+      written_edf = Edfize::Edf.new(output_file_no_annotations.path)
+      written_edf.load_signals
+
+      # Verify no EDF Annotations signal was added
+      assert_equal 1, written_edf.signals.size
+      assert_nil written_edf.signals.find_by_label("EDF Annotations")
+      assert_equal " " * 44, written_edf.reserved # RESERVED_SIZE is 44
+    ensure
+      output_file_no_annotations.close
+      output_file_no_annotations.unlink
+    end
+
+    # Test writing with annotations
+    output_file_with_annotations = Tempfile.new(["test-with-annotations", ".edf"])
+    begin
+      edf.write(output_file_with_annotations.path, add_edf_annotations: true)
+      written_edf = Edfize::Edf.new(output_file_with_annotations.path)
+      written_edf.load_signals
+
+      # Verify EDF Annotations signal was added
+      assert_equal 2, written_edf.signals.size
+      annotations_signal = written_edf.signals.find_by_label("EDF Annotations")
+      refute_nil annotations_signal
+      assert_match(/^EDF\+[CD]/, written_edf.reserved.strip)
+
+      # Verify annotations signal properties
+      assert_equal "EDF Annotations", annotations_signal.label
+      assert_equal -32_768, annotations_signal.digital_minimum
+      assert_equal 32_767, annotations_signal.digital_maximum
+      assert_equal -1, annotations_signal.physical_minimum
+      assert_equal 1, annotations_signal.physical_maximum
+      assert_equal 60, annotations_signal.samples_per_data_record
+      assert_equal "", annotations_signal.transducer_type.strip
+      assert_equal "", annotations_signal.physical_dimension.strip
+      assert_equal "", annotations_signal.prefiltering.strip
+      assert_equal "", annotations_signal.reserved_area.strip
+    ensure
+      output_file_with_annotations.close
+      output_file_with_annotations.unlink
     end
   end
 
@@ -477,8 +548,8 @@ class EdfTest < Minitest::Test
     # Create a temporary file for writing
     output_file = Tempfile.new(["test-write", ".edf"])
     begin
-      # Write the EDF file
-      original_edf.write(output_file.path)
+      # Write the EDF file with annotations
+      original_edf.write(output_file.path, add_edf_annotations: true)
 
       # Read back the written file
       written_edf = Edfize::Edf.new(output_file.path)
