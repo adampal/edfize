@@ -302,6 +302,174 @@ class EdfTest < Minitest::Test
     file.unlink # Deletes temporary file.
   end
 
+  def test_find_signal
+    # Create a new EDF file with test signals
+    edf = Edfize::Edf.create do |e|
+      e.local_patient_identification = "Test Patient"
+      e.local_recording_identification = "Test Recording"
+      e.start_date_of_recording = Time.now.strftime("%d.%m.%y")
+      e.start_time_of_recording = Time.now.strftime("%H.%M.%S")
+      e.duration_of_a_data_record = 1
+    end
+
+    # Create a PPG signal
+    ppg_signal = Edfize::Signal.new
+    ppg_signal.label = "ppg"
+    ppg_signal.transducer_type = "Test Signal"
+    ppg_signal.physical_dimension = "mV"
+    ppg_signal.physical_minimum = -100.0
+    ppg_signal.physical_maximum = 100.0
+    ppg_signal.digital_minimum = -32768
+    ppg_signal.digital_maximum = 32767
+    ppg_signal.prefiltering = "None"
+    ppg_signal.samples_per_data_record = 256
+    ppg_signal.reserved_area = " " * 32
+    edf.signals << ppg_signal
+
+    # Create another signal
+    ecg_signal = Edfize::Signal.new
+    ecg_signal.label = "ecg"
+    ecg_signal.transducer_type = "Test Signal"
+    ecg_signal.physical_dimension = "mV"
+    ecg_signal.physical_minimum = -100.0
+    ecg_signal.physical_maximum = 100.0
+    ecg_signal.digital_minimum = -32768
+    ecg_signal.digital_maximum = 32767
+    ecg_signal.prefiltering = "None"
+    ecg_signal.samples_per_data_record = 256
+    ecg_signal.reserved_area = " " * 32
+    edf.signals << ecg_signal
+
+    # Test finding signals
+    found_signal = edf.signals.find_by_label(:ppg)
+    assert_equal "ppg", found_signal.label
+    assert_equal ppg_signal, found_signal
+
+    found_signal = edf.signals.find_by_label(:ecg)
+    assert_equal "ecg", found_signal.label
+    assert_equal ecg_signal, found_signal
+
+    # Test finding non-existent signal
+    found_signal = edf.signals.find_by_label(:xyz)
+    assert_nil found_signal
+  end
+
+  def test_delete_signal
+    # Create a new EDF file with test signals
+    edf = Edfize::Edf.create do |e|
+      e.local_patient_identification = "Test Patient"
+      e.local_recording_identification = "Test Recording"
+      e.start_date_of_recording = Time.now.strftime("%d.%m.%y")
+      e.start_time_of_recording = Time.now.strftime("%H.%M.%S")
+      e.duration_of_a_data_record = 1
+    end
+
+    # Create a PPG signal
+    ppg_signal = Edfize::Signal.new
+    ppg_signal.label = "ppg"
+    ppg_signal.transducer_type = "Test Signal"
+    ppg_signal.physical_dimension = "mV"
+    ppg_signal.physical_minimum = -100.0
+    ppg_signal.physical_maximum = 100.0
+    ppg_signal.digital_minimum = -32768
+    ppg_signal.digital_maximum = 32767
+    ppg_signal.prefiltering = "None"
+    ppg_signal.samples_per_data_record = 256
+    ppg_signal.reserved_area = " " * 32
+    edf.signals << ppg_signal
+
+    # Create another signal
+    ecg_signal = Edfize::Signal.new
+    ecg_signal.label = "ecg"
+    ecg_signal.transducer_type = "Test Signal"
+    ecg_signal.physical_dimension = "mV"
+    ecg_signal.physical_minimum = -100.0
+    ecg_signal.physical_maximum = 100.0
+    ecg_signal.digital_minimum = -32768
+    ecg_signal.digital_maximum = 32767
+    ecg_signal.prefiltering = "None"
+    ecg_signal.samples_per_data_record = 256
+    ecg_signal.reserved_area = " " * 32
+    edf.signals << ecg_signal
+
+    # Test deleting signals
+    assert_equal 2, edf.signals.size
+    assert edf.signals.delete(:ppg)
+    assert_equal 1, edf.signals.size
+    assert_nil edf.signals.find_by_label(:ppg)
+    assert_equal "ecg", edf.signals.first.label
+
+    # Test deleting non-existent signal
+    refute edf.signals.delete(:xyz)
+    assert_equal 1, edf.signals.size
+  end
+
+  def test_write_modified_edf_file
+    # Create a new EDF file with test signals
+    edf = Edfize::Edf.create do |e|
+      e.local_patient_identification = "Test Patient"
+      e.local_recording_identification = "Test Recording"
+      e.start_date_of_recording = Time.now.strftime("%d.%m.%y")
+      e.start_time_of_recording = Time.now.strftime("%H.%M.%S")
+      e.duration_of_a_data_record = 1
+    end
+
+    # Create a PPG signal
+    ppg_signal = Edfize::Signal.new
+    ppg_signal.label = "ppg"
+    ppg_signal.transducer_type = "Test Signal"
+    ppg_signal.physical_dimension = "mV"
+    ppg_signal.physical_minimum = -100.0
+    ppg_signal.physical_maximum = 100.0
+    ppg_signal.digital_minimum = -32768
+    ppg_signal.digital_maximum = 32767
+    ppg_signal.prefiltering = "None"
+    ppg_signal.samples_per_data_record = 4
+    ppg_signal.reserved_area = " " * 32
+    ppg_signal.digital_values = [0, 1, 2, 3]
+    edf.signals << ppg_signal
+
+    # Create another signal
+    ecg_signal = Edfize::Signal.new
+    ecg_signal.label = "ecg"
+    ecg_signal.transducer_type = "Test Signal"
+    ecg_signal.physical_dimension = "mV"
+    ecg_signal.physical_minimum = -100.0
+    ecg_signal.physical_maximum = 100.0
+    ecg_signal.digital_minimum = -32768
+    ecg_signal.digital_maximum = 32767
+    ecg_signal.prefiltering = "None"
+    ecg_signal.samples_per_data_record = 4
+    ecg_signal.reserved_area = " " * 32
+    ecg_signal.digital_values = [4, 5, 6, 7]
+    edf.signals << ecg_signal
+
+    # Create a temporary file for writing
+    output_file = Tempfile.new(["test-modified", ".edf"])
+    begin
+      # Modify the signals
+      edf.signals.delete(:ppg)
+      ecg_signal = edf.signals.find_by_label(:ecg)
+      ecg_signal.digital_values = [8, 9, 10, 11]
+
+      # Write the modified EDF file
+      edf.write(output_file.path)
+
+      # Read back the written file
+      written_edf = Edfize::Edf.new(output_file.path)
+      written_edf.load_signals
+
+      # Verify the signals
+      assert_equal 2, written_edf.signals.size # 1 signal + 1 EDF Annotations signal
+      assert_nil written_edf.signals.find_by_label(:ppg)
+      written_ecg = written_edf.signals.find_by_label(:ecg)
+      assert_equal [8, 9, 10, 11], written_ecg.digital_values
+    ensure
+      output_file.close
+      output_file.unlink
+    end
+  end
+
   def test_write_edf_file
     # Load an existing EDF file
     original_edf = Edfize::Edf.new("test/support/simulated-01.edf")

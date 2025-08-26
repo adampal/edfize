@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "edfize/signal"
+require "edfize/signal_array"
 require "date"
 
 module Edfize
@@ -48,7 +49,7 @@ module Edfize
 
     def initialize(filename, initialize_empty: false)
       @filename = filename
-      @signals = []
+      @signals = SignalArray.new
       @is_new_file = initialize_empty
 
       if initialize_empty
