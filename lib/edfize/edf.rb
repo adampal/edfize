@@ -354,9 +354,26 @@ module Edfize
     end
 
     def write_data_records(file)
-      @signals.each do |signal|
-        # Use the signal's write method which handles both streaming and regular modes
-        signal.write_values_to(file)
+      # Calculate total samples per data record
+      total_samples_per_data_record = @signals.collect(&:samples_per_data_record).inject(:+).to_i
+
+      # For each data record
+      (0...@number_of_data_records).each do |data_record_index|
+        # For each signal
+        @signals.each do |signal|
+          # Get the values for this data record
+          start_index = data_record_index * signal.samples_per_data_record
+          end_index = start_index + signal.samples_per_data_record
+          values = signal.digital_values[start_index...end_index] || []
+          
+          # Pad with nil if we don't have enough values
+          while values.size < signal.samples_per_data_record
+            values << nil
+          end
+          
+          # Write the values
+          file.write(values.pack("s<*"))
+        end
       end
     end
 

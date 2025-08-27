@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "test_helper"
+require_relative "test_helper"
 require "tempfile"
 
 # Test to assure EDFs can be loaded and updated.
@@ -581,6 +581,93 @@ class EdfTest < Minitest::Test
 
         assert_equal orig_signal.digital_values, written_signal.digital_values,
                      "Digital values for signal #{i} do not match"
+      end
+    ensure
+      output_file.close
+      output_file.unlink
+    end
+  end
+
+  def test_signal_subset_preservation
+    # Load the original EDF file
+    original_edf = Edfize::Edf.new("example/TestPPG.edf")
+    original_edf.load_signals
+
+    # Create a temporary file for the modified EDF
+    output_file = Tempfile.new(["test-ppg-subset", ".edf"])
+    begin
+      # Store the original values of the signals we want to keep
+      signals_to_keep = ["ppg", "spo2", "pulse"]
+      original_values = {}
+      
+      signals_to_keep.each do |label|
+        signal = original_edf.signals.find_by_label(label)
+        if signal
+          original_values[label] = {
+            digital_values: signal.digital_values.dup,
+            physical_values: signal.physical_values.dup,
+            physical_minimum: signal.physical_minimum,
+            physical_maximum: signal.physical_maximum,
+            digital_minimum: signal.digital_minimum,
+            digital_maximum: signal.digital_maximum,
+            samples_per_data_record: signal.samples_per_data_record
+          }
+        end
+      end
+
+      # Delete all signals except the ones we want to keep
+      signals_to_delete = original_edf.signals.to_a.reject do |signal|
+        signals_to_keep.include?(signal.label.strip.downcase)
+      end
+      signals_to_delete.each do |signal|
+        original_edf.signals.delete(signal.label)
+      end
+
+      # Write the modified EDF file
+      original_edf.write(output_file.path)
+
+      # Read back the modified file
+      modified_edf = Edfize::Edf.new(output_file.path)
+      modified_edf.load_signals
+
+      # Verify the number of signals
+      assert_equal signals_to_keep.count { |label| original_values.key?(label) }, 
+                   modified_edf.signals.size, 
+                   "Modified EDF should only contain the kept signals"
+
+      # Verify each signal's values match the original
+      signals_to_keep.each do |label|
+        next unless original_values[label] # Skip if signal wasn't in original file
+
+        modified_signal = modified_edf.signals.find_by_label(label)
+        refute_nil modified_signal, "Signal #{label} should exist in modified file"
+
+        # Compare digital values
+        assert_equal original_values[label][:digital_values],
+                     modified_signal.digital_values,
+                     "Digital values for #{label} should match original"
+
+        # Compare physical values
+        assert_equal original_values[label][:physical_values],
+                     modified_signal.physical_values,
+                     "Physical values for #{label} should match original"
+
+        # Compare signal properties
+        assert_equal original_values[label][:physical_minimum],
+                     modified_signal.physical_minimum,
+                     "Physical minimum for #{label} should match original"
+        assert_equal original_values[label][:physical_maximum],
+                     modified_signal.physical_maximum,
+                     "Physical maximum for #{label} should match original"
+        assert_equal original_values[label][:digital_minimum],
+                     modified_signal.digital_minimum,
+                     "Digital minimum for #{label} should match original"
+        assert_equal original_values[label][:digital_maximum],
+                     modified_signal.digital_maximum,
+                     "Digital maximum for #{label} should match original"
+        assert_equal original_values[label][:samples_per_data_record],
+                     modified_signal.samples_per_data_record,
+                     "Samples per data record for #{label} should match original"
       end
     ensure
       output_file.close
