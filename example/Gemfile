@@ -2,6 +2,7 @@ source "https://rubygems.org"
 
 # Use local edfize gem
 gem "edfize", path: "/Users/adampallozzi/Code/gems/edfize"
+gem "oj"
 
 # If you want to specify the version:
 # gem "edfize", "0.6.0", path: "/Users/adampallozzi/Code/gems/edfize"

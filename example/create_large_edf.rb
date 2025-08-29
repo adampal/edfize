@@ -29,23 +29,22 @@ begin
   signal.samples_per_data_record = 256  # 256 Hz sampling rate
   signal.reserved_area = " " * 32
 
-  # Set up streaming for a large number of values
-  total_samples = 3_200_000  # 3.2 million values
+  # Generate sample values
+  total_samples = 32_000  # 32k values (about 125 seconds at 256Hz)
   sample_rate = 256.0
   frequency = 10.0  # 10 Hz sine wave
 
-  # Set up the streaming generator
-  signal.stream_values(total_samples, 10000) do |batch_size|
-    # Generate a batch of values
-    batch = []
-    batch_size.times do |i|
-      # Calculate the overall sample index
-      t = (i + batch.size) / sample_rate
-      # Generate sine wave value
-      batch << 100.0 * Math.sin(2 * Math::PI * frequency * t)
-    end
-    batch
+  # Generate all values and convert to digital
+  physical_values = []
+  total_samples.times do |i|
+    t = i / sample_rate
+    # Generate sine wave value
+    physical_values << 100.0 * Math.sin(2 * Math::PI * frequency * t)
   end
+
+  # Convert physical values to digital and assign to signal
+  signal.digital_values = signal.convert_to_digital(physical_values)
+  signal.physical_values = physical_values
 
   # Add the signal to the EDF
   edf.signals << signal

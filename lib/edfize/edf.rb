@@ -366,9 +366,10 @@ module Edfize
           end_index = start_index + signal.samples_per_data_record
           values = signal.digital_values[start_index...end_index] || []
           
-          # Pad with nil if we don't have enough values
+          # Pad with digital_minimum if we don't have enough values (or 0 if no minimum set)
+          pad_value = signal.digital_minimum || 0
           while values.size < signal.samples_per_data_record
-            values << nil
+            values << pad_value
           end
           
           # Write the values
@@ -376,6 +377,9 @@ module Edfize
         end
       end
     end
+
+
+
 
     def calculate_header_size
       main_header_size = HEADER_CONFIG.values.sum { |config| config[:size] }
@@ -434,7 +438,9 @@ module Edfize
 
       # Calculate number of data records if not set
       if @number_of_data_records == 0 && !@signals.empty?
-        max_values = @signals.map { |s| s.digital_values.size / s.samples_per_data_record.to_f }.max
+        max_values = @signals.map do |s|
+          s.digital_values.size / s.samples_per_data_record.to_f
+        end.max
         @number_of_data_records = max_values.ceil
       end
 

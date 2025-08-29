@@ -3,6 +3,7 @@
 require_relative "test_helper"
 require "tempfile"
 
+
 # Test to assure EDFs can be loaded and updated.
 class EdfTest < Minitest::Test
   def setup
@@ -674,4 +675,6 @@ class EdfTest < Minitest::Test
       output_file.unlink
     end
   end
+
+
 end

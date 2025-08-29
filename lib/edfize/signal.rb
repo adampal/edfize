@@ -25,9 +25,6 @@ module Edfize
     def initialize
       @digital_values = []
       @physical_values = []
-      @value_enumerator = nil
-      @total_samples = 0
-      @streaming_mode = false
     end
 
     def self.create
@@ -39,41 +36,6 @@ module Edfize
     def print_header
       SIGNAL_CONFIG.each do |section, hash|
         puts "  #{hash[:name]}#{" " * (29 - hash[:name].size)}: " + send(section).to_s
-      end
-    end
-
-    # Set up streaming mode with an enumerator that yields values in batches
-    def stream_values(total_samples, batch_size = 1000, &block)
-      @total_samples = total_samples
-      @streaming_mode = true
-      @value_enumerator = Enumerator.new do |yielder|
-        remaining = total_samples
-        while remaining > 0
-          current_batch_size = [batch_size, remaining].min
-          values = yield(current_batch_size)
-          values.each { |v| yielder << v }
-          remaining -= values.size
-        end
-      end
-    end
-
-    # Get the total number of samples this signal will contain
-    def total_samples
-      return @digital_values.size unless @streaming_mode
-      @total_samples
-    end
-
-    # Write values to a file in batches
-    def write_values_to(file, batch_size = 1000)
-      if @streaming_mode
-        # Streaming mode
-        @value_enumerator.each_slice(batch_size) do |batch|
-          digital_batch = convert_to_digital(batch)
-          file.write(digital_batch.pack("s<*"))
-        end
-      else
-        # Regular mode (all values in memory)
-        file.write(@digital_values.pack("s<*"))
       end
     end
 
@@ -99,8 +61,6 @@ module Edfize
     def samples
       @physical_values
     end
-
-    private
 
     # Convert physical values to digital values
     def convert_to_digital(physical_batch)

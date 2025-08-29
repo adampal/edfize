@@ -47,33 +47,27 @@ begin
 
   puts "Found #{total_samples} values in file"
 
-  # Create an enumerator to read the file line by line
-  file_enumerator = Enumerator.new do |yielder|
-    Zlib::GzipReader.open(input_path) do |gz|
-      # Skip opening bracket
-      gz.readline
-      
-      # Read values until we hit the closing bracket
-      while (line = gz.readline)
-        break if line.strip == "]"
-        # Parse the value (remove trailing comma if present)
-        value = line.strip.sub(/,$/, "").to_f
-        yielder << value
-      end
+  # Read all values from the gzipped JSON file into memory
+  physical_values = []
+  Zlib::GzipReader.open(input_path) do |gz|
+    # Skip opening bracket
+    gz.readline
+    
+    # Read values until we hit the closing bracket
+    while (line = gz.readline)
+      break if line.strip == "]"
+      # Parse the value (remove trailing comma if present)
+      value = line.strip.sub(/,$/, "").to_f
+      physical_values << value
     end
   end
 
-  # Set up the streaming generator to read from file
-  signal.stream_values(total_samples, 10000) do |batch_size|
-    batch = []
-    
-    # Take batch_size values from our enumerator
-    file_enumerator.take(batch_size).each do |value|
-      batch << value
-    end
-    
-    batch
-  end
+  # Update total_samples based on actual data read
+  total_samples = physical_values.size
+
+  # Convert physical values to digital and assign to signal
+  signal.digital_values = signal.convert_to_digital(physical_values)
+  signal.physical_values = physical_values
 
   # Add the signal to the EDF
   edf.signals << signal
